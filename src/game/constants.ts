@@ -13,6 +13,12 @@ export const PLAYER_MAX_HP = 100
 export const MAX_AMMO = 30
 export const SHOT_RANGE = 16
 
+// Pickups
+export const PICKUP_RADIUS = 0.55 // player grabs a pickup when within this radius
+export const AMMO_SMALL = 10
+export const AMMO_LARGE = 25
+export const MEDKIT_HP = 25
+
 // The classic 70-char ASCII brightness ramp (dark → light) borrowed from
 // Paul Bourke / doom-ascii. Index 0 is darkest, last index is brightest.
 // We use it as our shading primitive for walls, floor, ceiling and sprites.

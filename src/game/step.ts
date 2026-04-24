@@ -6,8 +6,12 @@ import {
   ENEMY_FIRE_RANGE,
   ENEMY_FIRE_CHANCE,
   PLAYER_MAX_HP,
+  MAX_AMMO,
   SHOT_RANGE,
-  FOV,
+  AMMO_SMALL,
+  AMMO_LARGE,
+  MEDKIT_HP,
+  PICKUP_RADIUS,
 } from './constants'
 import {isWall, type GameState} from './world'
 
@@ -108,16 +112,58 @@ export const step = (state: GameState, dt: number) => {
     }
   }
 
+  // Pickups: walk into one to grab it
+  for (const p of state.pickups) {
+    if (p.taken) continue
+    const dx = p.x - state.px
+    const dy = p.y - state.py
+    if (dx * dx + dy * dy > PICKUP_RADIUS * PICKUP_RADIUS) continue
+    p.taken = true
+    if (p.kind === 'ammo-small') {
+      state.ammo = Math.min(MAX_AMMO * 2, state.ammo + AMMO_SMALL)
+      state.message = `+${AMMO_SMALL} AMMO`
+    } else if (p.kind === 'ammo-large') {
+      state.ammo = Math.min(MAX_AMMO * 2, state.ammo + AMMO_LARGE)
+      state.message = `+${AMMO_LARGE} AMMO`
+    } else {
+      state.hp = Math.min(PLAYER_MAX_HP, state.hp + MEDKIT_HP)
+      state.message = `+${MEDKIT_HP} HEALTH`
+    }
+    state.messageFramesLeft = 50
+  }
+
   // Decay flashes
   if (state.muzzleFlash > 0) state.muzzleFlash--
   if (state.damageFlash > 0) state.damageFlash--
   if (state.messageFramesLeft > 0) state.messageFramesLeft--
 
-  // Win condition
+  // Wave clear: spawn a fresh, harder wave if there was one left to spawn,
+  // otherwise declare victory.
   if (state.enemies.every((e) => e.dead) && state.phase === 'playing') {
-    state.phase = 'win'
-    state.message = 'ALL DEMONS CLEARED — press R to replay'
-    state.messageFramesLeft = 9999
+    if (state.wave === 1) {
+      state.wave = 2
+      // Wave 2: tougher (hp 4), more of them, plus restock a couple pickups
+      const wave2: Array<[number, number]> = [
+        [3.5, 1.5], [8.5, 1.5], [14.5, 1.5],
+        [14.5, 5.5], [13.5, 11.5], [8.5, 9.5],
+        [4.5, 13.5], [10.5, 13.5],
+      ]
+      state.enemies = wave2.map(([x, y], i) => ({
+        id: 100 + i,
+        x, y, hp: 4, dead: false, hitFlash: 0,
+      }))
+      state.kills = 0 // reset kills for the wave counter shown in HUD
+      // drop an extra ammo crate near the spawn so it's a tiny bit fair
+      state.pickups.push({
+        id: Date.now(), x: 2.5, y: 1.5, kind: 'ammo-large', taken: false,
+      })
+      state.message = '▌▌ WAVE 2 ▌▌ MORE DEMONS INCOMING'
+      state.messageFramesLeft = 90
+    } else {
+      state.phase = 'win'
+      state.message = 'ALL DEMONS CLEARED — press R to replay'
+      state.messageFramesLeft = 9999
+    }
   }
 }
 
@@ -169,26 +215,33 @@ export const resetGame = (state: GameState) => {
   state.py = 1.5
   state.pa = 0
   state.hp = PLAYER_MAX_HP
-  state.ammo = 30
+  state.ammo = MAX_AMMO
   state.score = 0
   state.kills = 0
+  state.wave = 1
   state.muzzleFlash = 0
   state.damageFlash = 0
   state.message = ''
   state.messageFramesLeft = 0
   state.phase = 'playing'
-  for (const e of state.enemies) {
-    e.hp = 3
-    e.dead = false
-    e.hitFlash = 0
-  }
-  // reset positions
+
+  // Rebuild wave 1 enemies from scratch
   const spawns: Array<[number, number]> = [
     [6.5, 1.5], [12.5, 1.5], [13.5, 9.5],
     [4.5, 10.5], [7.5, 13.5], [11.5, 13.5],
   ]
-  for (let i = 0; i < state.enemies.length; i++) {
-    state.enemies[i].x = spawns[i]?.[0] ?? state.enemies[i].x
-    state.enemies[i].y = spawns[i]?.[1] ?? state.enemies[i].y
-  }
+  state.enemies = spawns.map(([x, y], i) => ({
+    id: i + 1, x, y, hp: 3, dead: false, hitFlash: 0,
+  }))
+
+  // Reset pickups
+  const pickups: Array<[number, number, 'ammo-small' | 'ammo-large' | 'medkit']> = [
+    [13.5, 1.5, 'ammo-large'],
+    [4.5, 3.5, 'ammo-small'],
+    [2.5, 8.5, 'medkit'],
+    [14.5, 7.5, 'ammo-small'],
+    [14.5, 13.5, 'ammo-large'],
+    [1.5, 14.5, 'medkit'],
+  ]
+  state.pickups = pickups.map(([x, y, kind], i) => ({id: i + 1, x, y, kind, taken: false}))
 }

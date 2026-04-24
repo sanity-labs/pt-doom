@@ -7,7 +7,7 @@ import {
   ceilRamp,
   enemyRamp,
 } from './constants'
-import {isWall, type GameState, type Enemy} from './world'
+import {isWall, type GameState, type Enemy, type Pickup} from './world'
 
 export type Cell = {ch: string; kind: CellKind}
 export type CellKind =
@@ -16,6 +16,8 @@ export type CellKind =
   | 'wall-ew'
   | 'floor'
   | 'enemy'
+  | 'pickup'
+  | 'medkit'
   | 'crosshair'
   | 'flash'
 
@@ -123,17 +125,30 @@ export function renderFrame(state: GameState): Frame {
     }
   }
 
-  // Render enemies as billboarded sprites (depth-sorted back→front)
-  const sorted = state.enemies
-    .filter((e) => !e.dead)
-    .map((e) => {
-      const dx = e.x - state.px
-      const dy = e.y - state.py
-      return {e, distSq: dx * dx + dy * dy}
-    })
-    .sort((a, b) => b.distSq - a.distSq)
+  // Combined sprite pass: enemies + pickups, back→front so nearer items
+  // overdraw farther ones correctly.
+  type Drawable =
+    | {kind: 'enemy'; e: Enemy; distSq: number}
+    | {kind: 'pickup'; p: Pickup; distSq: number}
+  const drawables: Drawable[] = []
+  for (const e of state.enemies) {
+    if (e.dead) continue
+    const dx = e.x - state.px
+    const dy = e.y - state.py
+    drawables.push({kind: 'enemy', e, distSq: dx * dx + dy * dy})
+  }
+  for (const p of state.pickups) {
+    if (p.taken) continue
+    const dx = p.x - state.px
+    const dy = p.y - state.py
+    drawables.push({kind: 'pickup', p, distSq: dx * dx + dy * dy})
+  }
+  drawables.sort((a, b) => b.distSq - a.distSq)
 
-  for (const {e} of sorted) drawEnemy(cells, zBuffer, state, e)
+  for (const d of drawables) {
+    if (d.kind === 'enemy') drawEnemy(cells, zBuffer, state, d.e)
+    else drawPickup(cells, zBuffer, state, d.p)
+  }
 
   return {cells, zBuffer}
 }
@@ -236,4 +251,78 @@ function pickSprite(dist: number): string[] {
   if (dist < 4) return SPRITE_NEAR
   if (dist < 9) return SPRITE_MID
   return SPRITE_FAR
+}
+
+// Pickups: low-to-the-floor crates (ammo) or medkits. Billboarded like enemies
+// but scaled to floor-height so they read as "on the ground".
+const CRATE_SPRITE = [
+  '╔══════╗',
+  '║AMMO  ║',
+  '║◆◆◆◆◆◆║',
+  '╚══════╝',
+]
+const CRATE_SPRITE_LARGE = [
+  '╔══════════╗',
+  '║  AMMO ++ ║',
+  '║◆◆◆◆◆◆◆◆◆◆║',
+  '║◆◆◆◆◆◆◆◆◆◆║',
+  '╚══════════╝',
+]
+const MEDKIT_SPRITE = [
+  '┌──────┐',
+  '│  +   │',
+  '│ +++  │',
+  '│  +   │',
+  '└──────┘',
+]
+
+function drawPickup(
+  cells: Cell[][],
+  zBuffer: number[],
+  state: GameState,
+  p: Pickup,
+) {
+  const dx = p.x - state.px
+  const dy = p.y - state.py
+
+  const depth = dx * Math.cos(state.pa) + dy * Math.sin(state.pa)
+  const side = -dx * Math.sin(state.pa) + dy * Math.cos(state.pa)
+  if (depth <= 0.2) return
+
+  const screenX = Math.floor((WIDTH / 2) * (1 + side / depth / Math.tan(FOV / 2)))
+  // crates are short — about 1/3 the height of a wall at that distance
+  const wallH = Math.floor(VIEW_HEIGHT / depth)
+  const sprite =
+    p.kind === 'medkit'
+      ? MEDKIT_SPRITE
+      : p.kind === 'ammo-large'
+        ? CRATE_SPRITE_LARGE
+        : CRATE_SPRITE
+  const spriteRows = sprite.length
+  const spriteCols = sprite[0].length
+
+  const halfH = Math.max(1, Math.floor(wallH * 0.22))
+  const halfW = Math.max(2, Math.floor(wallH * 0.32))
+
+  const startX = screenX - halfW
+  const endX = screenX + halfW
+  // anchor to the floor line (matches the bottom of the wall slab)
+  const floorLine = Math.floor(VIEW_HEIGHT / 2 + wallH / 2)
+  const endY = Math.min(VIEW_HEIGHT - 1, floorLine - 1)
+  const startY = Math.max(0, endY - halfH * 2)
+
+  const kindCell: CellKind = p.kind === 'medkit' ? 'medkit' : 'pickup'
+
+  for (let sx = startX; sx <= endX; sx++) {
+    if (sx < 0 || sx >= WIDTH) continue
+    if (zBuffer[sx] <= depth) continue // occluded by wall
+    const u = Math.floor(((sx - startX) / Math.max(1, endX - startX)) * (spriteCols - 1))
+    for (let sy = startY; sy <= endY; sy++) {
+      if (sy < 0 || sy >= VIEW_HEIGHT) continue
+      const v = Math.floor(((sy - startY) / Math.max(1, endY - startY)) * (spriteRows - 1))
+      const ch = sprite[v][u]
+      if (ch === ' ') continue
+      cells[sy][sx] = {ch, kind: kindCell}
+    }
+  }
 }

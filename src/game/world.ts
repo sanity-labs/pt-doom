@@ -38,6 +38,14 @@ export type Enemy = {
   hitFlash: number // frames remaining of red flash
 }
 
+export type Pickup = {
+  id: number
+  x: number
+  y: number
+  kind: 'ammo-small' | 'ammo-large' | 'medkit'
+  taken: boolean
+}
+
 export type GameState = {
   t: number // total seconds elapsed
   lastTickMs: number
@@ -56,6 +64,8 @@ export type GameState = {
   message: string
   messageFramesLeft: number
   enemies: Enemy[]
+  pickups: Pickup[]
+  wave: number // 1-indexed wave counter; increments when a wave is cleared
   startMs: number // ms timestamp when playing started; used for title-screen lockout
 }
 
@@ -77,6 +87,7 @@ export const makeInitialState = (): GameState => ({
   message: '',
   messageFramesLeft: 0,
   startMs: 0,
+  wave: 1,
   enemies: [
     // Close ambush for immediate "3D enemy in view" moment, then pepper
     // the rest across the map.
@@ -86,5 +97,13 @@ export const makeInitialState = (): GameState => ({
     {id: 4, x: 4.5, y: 10.5, hp: 3, dead: false, hitFlash: 0},
     {id: 5, x: 7.5, y: 13.5, hp: 3, dead: false, hitFlash: 0},
     {id: 6, x: 11.5, y: 13.5, hp: 3, dead: false, hitFlash: 0},
+  ],
+  pickups: [
+    {id: 1, x: 13.5, y: 1.5,  kind: 'ammo-large', taken: false}, // end of top corridor
+    {id: 2, x: 4.5,  y: 3.5,  kind: 'ammo-small', taken: false}, // tucked in the cross
+    {id: 3, x: 2.5,  y: 8.5,  kind: 'medkit',     taken: false}, // middle-left
+    {id: 4, x: 14.5, y: 7.5,  kind: 'ammo-small', taken: false}, // right column
+    {id: 5, x: 14.5, y: 13.5, kind: 'ammo-large', taken: false}, // far south-east
+    {id: 6, x: 1.5,  y: 14.5, kind: 'medkit',     taken: false}, // far south-west
   ],
 })

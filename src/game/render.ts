@@ -57,6 +57,8 @@ const markForKind = (kind: Cell['kind']): string[] => {
     case 'ceiling': return ['ceil']
     case 'crosshair': return ['cross']
     case 'flash': return ['flash']
+    case 'pickup': return ['pickup']
+    case 'medkit': return ['medkit']
   }
 }
 
@@ -84,7 +86,12 @@ const buildMinimap = (state: GameState): string[] => {
       } else if (state.enemies.some((e) => !e.dead && Math.floor(e.x) === x && Math.floor(e.y) === y)) {
         line += '✕'
       } else {
-        line += MAP[y][x] === '#' ? '█' : ' '
+        const pu = state.pickups.find((p) => !p.taken && Math.floor(p.x) === x && Math.floor(p.y) === y)
+        if (pu) {
+          line += pu.kind === 'medkit' ? '+' : '$'
+        } else {
+          line += MAP[y][x] === '#' ? '█' : ' '
+        }
       }
     }
     lines.push(line)
@@ -303,6 +310,8 @@ export const renderToBlocks = (state: GameState): Block[] => {
       if (ch === '✕') kind = 'enemy'
       else if (ch === '█') kind = 'wall-ns'
       else if (ch === '▲' || ch === '▼' || ch === '◀' || ch === '▶') kind = 'crosshair'
+      else if (ch === '$') kind = 'pickup'
+      else if (ch === '+') kind = 'medkit'
       cells[y][x] = {ch: ch === ' ' ? '·' : ch, kind}
     }
   }

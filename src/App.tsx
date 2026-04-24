@@ -20,6 +20,8 @@ const schemaDefinition = defineSchema({
     {name: 'enemy'},
     {name: 'cross'},
     {name: 'flash'},
+    {name: 'pickup'},
+    {name: 'medkit'},
   ],
   styles: [{name: 'normal'}],
   annotations: [],
