@@ -1,0 +1,11 @@
+node_modules
+dist
+.DS_Store
+.vercel
+.vite
+.env
+.env.local
+*.log
+# TypeScript build output (we don't emit alongside sources; this is belt-and-braces)
+*.tsbuildinfo
+src/**/*.js

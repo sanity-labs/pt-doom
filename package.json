@@ -1,0 +1,27 @@
+{
+  "name": "pt-doom",
+  "description": "A first-person shooter rendered inside @portabletext/editor. Every row is a Portable Text block; input is routed through the Behaviors API.",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@portabletext/editor": "^6.6.2",
+    "@portabletext/patches": "^2.0.4",
+    "@portabletext/react": "^6.0.3",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.3"
+  }
+}
